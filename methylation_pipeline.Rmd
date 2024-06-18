@@ -1,0 +1,144 @@
+
+This is a first report on 450k methylation analysis. The data have been obtained through the study created by Tothe et al. under the GEO accession number: [GSE127985](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE127985). It should be noted that for downloading the data and creating the sample sheet .csv file, the methylprep python library has been utilized. All subsequent steps have been executed through the R language by using well-established methylation analysis packages.
+
+It should be noted that minfi, IlluminaHumanMethylation450kanno.ilmn12.hg19, IlluminaHumanMethylation450kmanifest, missMethyl, minfiData and DMRcate are methylation specific packages, while RColorBrewer and Gviz are visualisation packages. The limma package has been utilized for differential methylation.
+
+Also matrixStats and stringr have functions used in the workflow. The IlluminaHumanMethylation450kmanifest package provides the Illumina manifest as an R object which can easily be loaded into the environment. The manifest contains all of the annotation information for each of the CpG probes on the 450k array. This is useful for determining where any differentially methylated probes are located in a genomic context.
+
+
+
+```{r}
+# Load all necessary packages
+library(limma)
+library(minfi)
+library(IlluminaHumanMethylation450kanno.ilmn12.hg19)
+library(IlluminaHumanMethylation450kmanifest)
+library(RColorBrewer)
+library(missMethyl)
+library(minfiData)
+library(Gviz)
+library(DMRcate)
+library(stringr)
+library(reshape)
+library(lattice)
+```
+
+```{r}
+# get the 450k annotation data
+ann450k <- getAnnotation(IlluminaHumanMethylation450kanno.ilmn12.hg19)
+head(ann450k)
+```
+
+```{r}
+# read in the sample sheet for the experiment
+targets <- read.metharray.sheet("./GSE127985_data", pattern="SampleSheet.csv")
+targets
+```
+
+
+```{r}
+# read in the raw data from the IDAT files
+rgSet <- read.metharray.exp(targets=targets)
+rgSet
+```
+
+
+```{r}
+# give the samples descriptive names
+targets$ID <- paste(targets$Prognosis,targets$Sample_Name,sep=".")
+sampleNames(rgSet) <- targets$ID
+rgSet
+```
+
+
+```{r}
+# calculate the detection p-values
+detP <- detectionP(rgSet)
+head(detP)
+```
+
+```{r}
+pal <- brewer.pal(8,"Dark2")
+
+# Generate the barplot and capture its return value for use with legend placement
+bp <- barplot(colMeans(detP), col = pal[factor(targets$Prognosis)], las = 2,
+              cex.names = 0.8, ylab = "Mean detection p-values")+
+
+legend("topleft", legend = levels(factor(targets$Prognosis)), fill = pal, bg = "white")
+```
+
+
+```{r}
+.isRGOrStop <- function(object) {
+    if (!is(object, "RGChannelSet")) {
+        stop("object is of class '", class(object), "', but needs to be of ",
+             "class 'RGChannelSet' or 'RGChannelSetExtended'")
+    }
+}
+
+
+
+mycontrolStripPlot <- function(rgSet,
+                             controls = c("BISULFITE CONVERSION I",
+                                          "BISULFITE CONVERSION II"),
+                             sampNames = NULL, xlim = c(5, 17)) {
+    .isRGOrStop(rgSet)
+
+    r <- getRed(rgSet)
+    g <- getGreen(rgSet)
+
+    for (controlType in controls) {
+        ctrlAddress <- getControlAddress(rgSet, controlType = controlType)
+
+        # Red channel
+        ctlWide <- as.matrix(log2(r[ctrlAddress, ,drop = FALSE]))
+        if (!is.null(sampNames)) colnames(ctlWide) <- sampNames
+        ctlR <- melt(ctlWide, varnames = c("address", "sample"))
+
+        # Green channel
+        ctlWide <- as.matrix(log2(g[ctrlAddress, ,drop = FALSE]))
+        if (!is.null(sampNames)) colnames(ctlWide) <- sampNames
+        ctlG <- melt(ctlWide, varnames = c("address", "sample"))
+
+        # Plot
+        ctl <- rbind(
+            cbind(channel = "Red", ctlR),
+            cbind(channel = "Green", ctlG))
+        if (any((ctl$value < xlim[1]) | (ctl$value > xlim[2]))) {
+            message("Warning: ", controlType, " probes outside plot range")
+        }
+        fig <- xyplot(
+            x = sample ~ value | channel,
+            groups = channel, horizontal = TRUE, pch = 19,
+            col = c("darkgreen", "darkred"),
+            xlab = "Log2 Intensity",
+            xlim = xlim,
+            main = paste("Control:", controlType),
+            layout = c(2, 1),
+            data = ctl,
+            panel = function(x, y,...) {
+                panel.stripplot(x, y,...)
+                panel.abline(h = (as.numeric(y) - 0.5), lty = 3, col = "grey70")
+            })
+        print(fig)
+    }
+}
+
+```
+
+
+
+```{r}
+# names <- pData(rgSet)$Sample_Name[1:6]
+mycontrolStripPlot(rgSet, controls="BISULFITE CONVERSION II")
+```
+
+
+```{r}
+selectedIndices <- sample(seq_len(ncol(rgSet)), 10)
+selectedSampleNames <- sampleNames(rgSet)[selectedIndices]
+subRGSet <- subset(rgSet, subset = selectedSampleNames)
+```
+
+
+

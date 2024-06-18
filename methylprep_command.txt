@@ -1,0 +1,1 @@
+python -m methylprep -v download -i [GEO_DATA_ID] -o -d [EXISTING_DIRECTORY]
