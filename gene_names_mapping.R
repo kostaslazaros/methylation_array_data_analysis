@@ -4,14 +4,24 @@ library(minfi)
 library(tidyr)
 
 # get the EPIC annotation data
+#annEPIC_v2 <- getAnnotation(IlluminaHumanMethylationEPICv2anno.20a1.hg38)
+#head(annEPIC_v2)
+#annEPIC_v2$GencodeV41_Name
+
+
 annEPIC <- getAnnotation(IlluminaHumanMethylationEPICanno.ilm10b4.hg19)
 head(annEPIC)
 
-df <- read.csv(file="./step01_data_beta_vals.csv", header=TRUE, row.names=1, stringsAsFactors=TRUE)
 
-# get the table of results for the first contrast (naive - rTreg)
+df <- read.csv(file="./diagenode_public_combination_results/data/merged_bvals.csv", header=TRUE, row.names=1, stringsAsFactors=TRUE)
+
+# get the table of results for the first contrast
+#annEPICSub_v2 <- annEPIC_v2[match(rownames(df),annEPIC_v2$Name),
+                     # c(1:4,12:19,24:ncol(annEPIC_v2))]
+
+# get the table of results for the first contrast
 annEPICSub <- annEPIC[match(rownames(df),annEPIC$Name),
-                      c(1:4,12:19,24:ncol(annEPIC))]
+                            c(1:4,12:19,24:ncol(annEPIC))]
 
 df$Genes <- annEPICSub$GencodeBasicV12_NAME
 
@@ -21,13 +31,18 @@ df <- subset(df, select=-Rest)
 
 df <- df[df$GeneName != "", ]
 
-rows_to_keep <- apply(df, 1, function(row) all(row < 0.3 | row > 0.6))
+#rows_to_keep <- apply(df, 1, function(row) all(row < 0.3 | row > 0.6))
 
 
-df_filtered <- df[rows_to_keep, ]
+#df_filtered <- df[rows_to_keep, ]
+
+df_filtered <- df
 
 # Remove unecessary 
 rm(df)
+#rm(annEPIC_v2)
+#rm(annEPICSub_v2)
+
 rm(annEPIC)
 rm(annEPICSub)
 
@@ -41,4 +56,4 @@ grouped_df <- df_filtered %>%
 
 final_df <- grouped_df %>% column_to_rownames(var = "GeneName")
 
-write.table(final_df, file="./step01_epic_data_heatmap_df.csv", sep=",", row.names=TRUE)
+write.table(final_df, file="./diagenode_public_combination_results/data/diagenode_public_combo_data_heatmap_df.csv", sep=",", row.names=TRUE)

@@ -2,7 +2,7 @@ library(tidyverse)
 library(RColorBrewer)
 library(ggrepel)
 
-df <- read.csv("./step01_indolent_vs_benign_DMPs.csv")
+df <- read.csv("./diagenode_public_combination_results/data/combination_indolent_vs_metastasis_DMPs.csv")
 df$neg_log10_pval <- -log10(df$P.Value)
 df
 
@@ -52,15 +52,15 @@ df$diffexpressed <- "NO"
   # Note. with coord_cartesian() even if we have genes with p-values or log2FC ourside our limits, they will still be plotted.
   # Your adjusted plot code
 p <- ggplot(data=df, aes(x=logFC, y= -log10(P.Value), col=diffexpressed)) +
-    geom_vline(xintercept=c(-1, 1), col = "gray", linetype = 'dashed') +
+    geom_vline(xintercept=c(-2.5, 2.5), col = "gray", linetype = 'dashed') +
     geom_hline(yintercept=-log10(0.001), col = "gray", linetype = 'dashed') + 
     geom_point(size=2) + 
     scale_color_manual(values=c("#00AFBB", "grey", "#bb0c00"),
                        labels=c("Hypomethylated", "Not significant", "Hypermethylated")) +
-    coord_cartesian(ylim=c(0, 11), xlim=c(-7, 7)) +
+    coord_cartesian(ylim=c(0, 11), xlim=c(-6, 6)) +
     labs(color='', x=expression("log"[2]*"FC"), y=expression("-log"[10]*"p-value")) +
-    scale_x_continuous(breaks=seq(-7, 7, 1)) +
-    ggtitle("DMPs (Indolent vs Benign)")
+    scale_x_continuous(breaks=seq(-6, 6, 1)) +
+    ggtitle("DMPs (Indolent vs Metastasis)")
   
   # Adding labels with ggrepel for better visibility and avoiding overlaps
  p + geom_label_repel(data=df_annotated, aes(label=Name, x=logFC, y= -log10(P.Value)),
