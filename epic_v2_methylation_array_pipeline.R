@@ -10,6 +10,7 @@ library(Gviz)
 library(DMRcate)
 library(stringr)
 library(reshape)
+library(sesame)
 library(lattice)
 library(Matrix) 
 library(data.table) 
@@ -25,7 +26,7 @@ targets <- read.metharray.sheet("./diagenode_data", pattern="SampleSheet.csv")
 targets
 
 # read in the raw data from the IDAT files
-rgSet <- read.metharray.exp(targets=targets1, force = TRUE)
+rgSet <- read.metharray.exp(targets=targets, force = TRUE)
 rgSet
 
 
@@ -182,11 +183,6 @@ legend("topleft", legend=levels(factor(targets$Prognosis_simple)), text.col=pal,
        bg="white", cex=0.7)
 
 
-# calculate M-values for statistical analysis
-mVals <- getM(mSetSqFlt)
-head(mVals[,1:5])
-
-
 bVals <- getBeta(mSetSqFlt)
 
 # Convert the matrix to a data frame
@@ -198,6 +194,8 @@ rows_to_keep <- apply(bVals_df, 1, function(row) all(row < 0.3 | row > 0.6))
 bVals_df <- bVals_df[rows_to_keep, ]
 
 bVals <- as.matrix(bVals_df)
+
+mVals <- BetaValueToMValue(bVals)
 
 # Write the data frame to a CSV file
 write.csv(bVals_df, file = "./diagenode_data_results/data/diagenode_data_beta_vals.csv", row.names = TRUE)
@@ -260,7 +258,7 @@ names(groups) <- levels(factor(targets$Prognosis_simple))
 
 cols <- groups[as.character(factor(targets$Prognosis_simple))]
 
-DMR.plot(ranges = results.ranges, dmr = 3, CpGs = bVals, phen.col = cols, 
+DMR.plot(ranges = results.ranges, dmr = 7, CpGs = bVals, phen.col = cols, 
          what = "Beta", arraytype = "EPICv2", genome = "hg38")
 
 

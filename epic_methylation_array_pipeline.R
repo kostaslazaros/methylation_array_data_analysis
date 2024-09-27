@@ -8,6 +8,7 @@ library(missMethyl)
 library(minfiData)
 library(Gviz)
 library(DMRcate)
+library(sesame)
 library(stringr)
 library(reshape)
 library(lattice)
@@ -23,7 +24,7 @@ head(annEPIC)
 
 
 # read in the sample sheet for the experiment
-targets <- read.metharray.sheet("./public_data", pattern="SampleSheet.csv")
+targets <- read.metharray.sheet("./step01_version02_public_data/data/step01_version02_epic_data", pattern="SampleSheet.csv")
 targets
 
 # read in the raw data from the IDAT files
@@ -50,6 +51,8 @@ bp <- barplot(colMeans(detP), col = pal[factor(targets$Prognosis_simple)], las =
               cex.names = 0.8, ylab = "Mean detection p-values")
 legend("topleft", legend = levels(factor(targets$Prognosis_simple)), fill = pal, bg = "white")
 
+
+# controlStripPlot(rgSet, controls="BISULFITE CONVERSION II")
 
 .isRGOrStop <- function(object) {
   if (!is(object, "RGChannelSet")) {
@@ -194,28 +197,33 @@ legend("topleft", legend=levels(factor(targets$Prognosis_simple)), text.col=pal,
 
 
 # calculate M-values for statistical analysis
-mVals <- getM(mSetSqFlt)
-head(mVals[,1:5])
+#mVals <- getM(mSetSqFlt)
+#head(mVals[,1:5])
 
-mVals_df <- as.data.frame(mVals)
+#mVals_df <- as.data.frame(mVals)
 
 # Write the data frame to a CSV file
-write.csv(mVals_df, file = "./public_data_mvals.csv", row.names = TRUE)
+#write.csv(mVals_df, file = "./public_data_mvals.csv", row.names = TRUE)
 
 bVals <- getBeta(mSetSqFlt)
 
 # Convert the matrix to a data frame
 bVals_df <- as.data.frame(bVals)
 
-
 rows_to_keep <- apply(bVals_df, 1, function(row) all(row < 0.3 | row > 0.6))
-
 bVals_df <- bVals_df[rows_to_keep, ]
-
 bVals <- as.matrix(bVals_df)
+mVals <- BetaValueToMValue(bVals)
+
+mVals_df <- as.data.frame(mVals)
+
+write.csv(mVals_df, file = "./public_data_mvals.csv", row.names = TRUE)
+
 
 # Write the data frame to a CSV file
-write.csv(bVals_df, file = "./public_data_beta_vals.csv", row.names = TRUE)
+write.csv(bVals_df, file = "./step01_version02_public_data/results/public_data_bvals.csv", row.names = TRUE)
+
+
 
 head(bVals[,1:5])
 
@@ -244,7 +252,7 @@ colnames(design) <- c(levels(prognosis))
 fit1 <- lmFit(mVals, design)
 
 # create a contrast matrix for specific comparisons
-contMatrix <- makeContrasts(AVPC-High_Grade, levels=design)
+contMatrix <- makeContrasts(indolent-benign, levels=design)
 
 
 # fit the contrasts
@@ -262,26 +270,24 @@ annEPICSub <- annEPIC[match(rownames(mVals),annEPIC$Name),
 DMPs <- topTable(fit2, num=Inf, coef=1, genelist=annEPICSub)
 head(DMPs)
 
-write.table(DMPs, file="./diagenode_avpc_vs_high_grade_DMPs.csv", sep=",", row.names=FALSE)
+write.table(DMPs, file="./step01_version02_public_data/results/indolent_vs_benign_dmps.csv", sep=",", row.names=FALSE)
 
 
 # Differentially methylated regions
 myAnnotation <- cpg.annotate(object = mVals, datatype = "array", what = "M", 
                              analysis.type = "differential", design = design, 
                              contrasts = TRUE, cont.matrix = contMatrix, 
-                             coef = "AVPC - High_Grade", arraytype = "EPIC")
-
+                             epicv2Remap = FALSE, coef = "indolent - benign", 
+                             arraytype = "EPICv1")
 
 str(myAnnotation)
-
-
 
 DMRs <- dmrcate(myAnnotation, lambda=1000, pcutoff = 0.001)
 results.ranges <- extractRanges(DMRs)
 results.ranges
 
 # Save the GRanges object
-saveRDS(results.ranges, file = "./diagenode_avpc_vs_high_grade_granges_object.rds")
+saveRDS(results.ranges, file = "./step01_version02_public_data/results/indolent_vs_benign_granges.rds")
 
 # set up the grouping variables and colours
 groups <- pal[1:length(unique(targets$Prognosis_simple))]
@@ -290,6 +296,6 @@ cols <- groups[as.character(factor(targets$Prognosis_simple))]
 
 # draw the plot for the top DMR
 par(mfrow=c(1,1))
-DMR.plot(ranges = results.ranges, dmr = 11, CpGs = bVals, phen.col = cols, 
-         what = "Beta", arraytype = "EPIC", genome = "hg19")
+DMR.plot(ranges = results.ranges, dmr = 1, CpGs = bVals, phen.col = cols, 
+         what = "Beta", arraytype = "EPICv1", genome = "hg19")
 

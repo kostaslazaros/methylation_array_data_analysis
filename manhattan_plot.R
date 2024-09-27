@@ -200,7 +200,7 @@ manhattan.plot<-function(chr, pos, pvalue,
 }
 
 #df <- read.csv("./diagenode_data_results/data/diagenode_avpc_vs_high_grade_DMPs.csv")
-df <- read.csv("./diagenode_public_combination_results/data/combination_indolent_vs_metastasis_DMPs.csv")
+df <- read.csv("./diagenode_data_results/data/diagenode_avpc_vs_high_grade_DMPs.csv")
 
 
 # Adjust the factor levels to match the 'chr' prefix format and include 'chrY'
@@ -211,11 +211,12 @@ df$chr <- factor(df$chr, levels = c(paste0("chr", 1:22), "chrX", "chrY"))
 ann <- rep("", nrow(df))
 
 # Identify significant sites based on the new criteria
-up_sites <- which(df$logFC > 1 & df$P.Value < 0.001)
-down_sites <- which(df$logFC < -1 & df$P.Value < 0.001)
+up_sites <- which(df$P.Value < 0.00001)
+down_sites <- which(df$P.Value < 0.00001)
 
 # Combine both sets of significant sites
-significant_sites <- c(up_sites, down_sites)
+#significant_sites <- c(up_sites, down_sites)
+significant_sites <- up_sites
 
 # Annotate the significant CpG sites with their names
 ann[significant_sites] <- as.character(df$Name[significant_sites])
