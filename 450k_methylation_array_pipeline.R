@@ -11,13 +11,18 @@ library(DMRcate)
 library(stringr)
 library(reshape)
 library(lattice)
-
+library(openxlsx)
 
 
 # get the 450k annotation data
 ann450k <- getAnnotation(IlluminaHumanMethylation450kanno.ilmn12.hg19)
 head(ann450k)
 
+# Convert row names to a new dataframe with a single column named 'ID_source'
+df_with_id_source <- data.frame(ID_source = rownames(ann450k))
+
+# Save the new dataframe as an Excel file
+write.xlsx(df_with_id_source, "450k_ID_source_data.xlsx", rowNames = FALSE)
 
 
 # read in the sample sheet for the experiment

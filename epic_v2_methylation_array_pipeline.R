@@ -15,14 +15,31 @@ library(lattice)
 library(Matrix) 
 library(data.table) 
 library(dplyr)
+library(openxlsx)
 
 
 # get the EPIC V2 annotation data
 annEPICv2 <- getAnnotation(IlluminaHumanMethylationEPICv2anno.20a1.hg38)
 head(annEPICv2)
 
+# Convert row names to a new dataframe with a single column named 'ID_source' 
+#df_with_id_source <- data.frame(ID_source = rownames(annEPICv2))
+
+# Select the specified columns from annEPICv2 and combine with ID_source
+#selected_columns <- annEPICv2[, c("chr", "pos", "strand", "Relation_to_Island", 
+#                                  "HMM_Island", "Regulatory_Feature_Group", 
+#                                  "Phantom5_Enhancers", "Methyl450_Enhancer",
+#                                  "Methyl450_Loci", "EPICv1_Loci")]
+
+# Combine ID_source column with the selected columns
+#final_df <- cbind(df_with_id_source, selected_columns)
+
+# Save the new dataframe as an Excel file
+#write.xlsx(final_df, "./EPICv2_source_data.xlsx", rowNames = TRUE)
+
+
 # read in the sample sheet for the experiment
-targets <- read.metharray.sheet("./diagenode_data", pattern="SampleSheet.csv")
+targets <- read.metharray.sheet("./diagenode_v2_data", pattern="SampleSheet.csv")
 targets
 
 # read in the raw data from the IDAT files
@@ -31,7 +48,7 @@ rgSet
 
 
 # give the samples descriptive names
-targets$ID <- paste(targets$Prognosis_simple,targets$Sample_Name,sep=".")
+targets$ID <- paste(targets$Prognosis,targets$Sample_Name,sep=".")
 sampleNames(rgSet) <- targets$GSM_ID
 rgSet
 
@@ -43,9 +60,9 @@ pal <- brewer.pal(8,"Dark2")
 
 # Generate the barplot and capture its return value for use with legend placement
 par(mfrow=c(1,1))
-bp <- barplot(colMeans(detP), col = pal[factor(targets$Prognosis_simple)], las = 3,
+bp <- barplot(colMeans(detP), col = pal[factor(targets$Prognosis)], las = 3,
               cex.names = 0.8, ylab = "Mean detection p-values")
-legend("topleft", legend = levels(factor(targets$Prognosis_simple)), fill = pal, bg = "white")
+legend("topleft", legend = levels(factor(targets$Prognosis)), fill = pal, bg = "white")
 
 # Control Strip Plot (for Bisulfite Conversion I and II)
 .isRGOrStop <- function(object) {
@@ -124,17 +141,17 @@ mSetSq <- preprocessFunnorm(rgSet)
 mSetRaw <- preprocessRaw(rgSet)
 
 qc <- getQC(mSetRaw)
-plotQC(qc)
+plotQC(qc, badSampleCutoff = 10)
 
 
 # visualise what the data looks like before and after normalisation
 par(mfrow=c(1,2))
-densityPlot(rgSet, sampGroups=targets$Prognosis_simple,main="Raw", legend=FALSE)
-legend("top", legend = levels(factor(targets$Prognosis_simple)), 
+densityPlot(rgSet, sampGroups=targets$Prognosis,main="Raw", legend=FALSE)
+legend("top", legend = levels(factor(targets$Prognosis)), 
        text.col=brewer.pal(8,"Dark2"))
-densityPlot(getBeta(mSetSq), sampGroups=targets$Prognosis_simple,
+densityPlot(getBeta(mSetSq), sampGroups=targets$Prognosis,
             main="Normalized", legend=FALSE)
-legend("top", legend = levels(factor(targets$Prognosis_simple)), 
+legend("top", legend = levels(factor(targets$Prognosis)), 
        text.col=brewer.pal(8,"Dark2"))
 
 
@@ -142,8 +159,8 @@ legend("top", legend = levels(factor(targets$Prognosis_simple)),
 # MDS plots to look at largest sources of variation
 par(mfrow=c(1,1))
 plotMDS(getM(mSetSq), top=1000, gene.selection="common", 
-        col=pal[factor(targets$Prognosis_simple)])
-legend("topleft", legend=levels(factor(targets$Prognosis_simple)), text.col=pal,
+        col=pal[factor(targets$Prognosis)])
+legend("topleft", legend=levels(factor(targets$Prognosis)), text.col=pal,
        bg="white", cex=0.7)
 
 
@@ -178,8 +195,8 @@ mSetSqFlt
 # MDS plots to look at largest sources of variation
 par(mfrow=c(1,1))
 plotMDS(getM(mSetSqFlt), top=1000, gene.selection="common", 
-        col=pal[factor(targets$Prognosis_simple)])
-legend("topleft", legend=levels(factor(targets$Prognosis_simple)), text.col=pal,
+        col=pal[factor(targets$Prognosis)])
+legend("topleft", legend=levels(factor(targets$Prognosis)), text.col=pal,
        bg="white", cex=0.7)
 
 
@@ -188,24 +205,42 @@ bVals <- getBeta(mSetSqFlt)
 # Convert the matrix to a data frame
 bVals_df <- as.data.frame(bVals)
 
+# Assuming your data frame is named df and the column of interest is "column_name"
+#min_value <- min(bVals_df$GSEDIAG19, na.rm = TRUE)
+#max_value <- max(bVals_df$GSEDIAG19, na.rm = TRUE)
 
-rows_to_keep <- apply(bVals_df, 1, function(row) all(row < 0.3 | row > 0.6))
+#min_value
+#max_value
 
+# Assuming your data frame is named df and the column of interest is "column_name"
+#zero_count <- sum(bVals_df$GSEDIAG19 < 0.1, na.rm = TRUE)
+#zero_count
+
+# Remove values that are either <= 0 or >=1 in 
+# order to avoid inf error in PCA dim reduction
+rows_to_keep <- apply(bVals_df, 1, function(row) all(row > 0 & row < 1))
 bVals_df <- bVals_df[rows_to_keep, ]
+
+rows_to_keep2 <- apply(bVals_df, 1, function(row) all(row < 0.3 | row > 0.6))
+bVals_df <- bVals_df[rows_to_keep2, ]
+
+min(min(bVals_df))
 
 bVals <- as.matrix(bVals_df)
 
 mVals <- BetaValueToMValue(bVals)
 
+mvals_df <- as.data.frame(mVals)
+mvals_df
 # Write the data frame to a CSV file
-write.csv(bVals_df, file = "./diagenode_data_results/data/diagenode_data_beta_vals.csv", row.names = TRUE)
+write.csv(mvals_df, file = "./diagenode_v2_mvals.csv", row.names = TRUE)
 
 head(bVals[,1:5])
 
 # Differential CpG methylation analysis
 
 # this is the factor of interest
-prognosis <- factor(targets$Prognosis_simple)
+prognosis <- factor(targets$Prognosis)
 
 # use the above to create a design matrix
 design <- model.matrix(~0+prognosis, data=targets)
@@ -215,7 +250,7 @@ colnames(design) <- c(levels(prognosis))
 fit1 <- lmFit(mVals, design)
 
 # create a contrast matrix for specific comparisons
-contMatrix <- makeContrasts(AVPC-High_Grade, levels=design)
+contMatrix <- makeContrasts(AVPC-Indolent, levels=design)
 
 # fit the contrasts
 fit2 <- contrasts.fit(fit1, contMatrix)
@@ -231,7 +266,7 @@ annEPICv2Sub <- annEPICv2[match(rownames(mVals),annEPICv2$Name),
 DMPs <- topTable(fit2, num=Inf, coef=1, genelist=annEPICv2Sub)
 head(DMPs)
 
-write.table(DMPs, file="./diagenode_data_results/data/diagenode_avpc_vs_high_grade_DMPs.csv", sep=",", row.names=FALSE)
+write.table(DMPs, file="./avpc_vs_indolent_DMPs.csv", sep=",", row.names=FALSE)
 
 mVals_filt1 <- rmSNPandCH(mVals)
 mVals_filt2 <- rmPosReps(mVals_filt1, filter.strategy="mean")
@@ -241,7 +276,7 @@ myAnnotation <- cpg.annotate(object = mVals_filt2, datatype = "array", what = "M
                              arraytype = "EPICv2", epicv2Remap = TRUE, 
                              analysis.type = "differential", design = design, 
                              contrasts = TRUE, cont.matrix = contMatrix, 
-                             coef = "AVPC - High_Grade", fdr=0.001)
+                             coef = "AVPC - Group4", fdr=0.001)
 
 DMRs <- dmrcate(myAnnotation, lambda=1000, pcutoff=0.001)
 results.ranges <- extractRanges(DMRs, genome="hg38")
@@ -249,16 +284,16 @@ results.ranges <- extractRanges(DMRs, genome="hg38")
 
 
 # Save the GRanges object
-saveRDS(results.ranges, file = "./diagenode_data_results/data/diagenode_avpc_vs_high_grade_granges_object.rds")
+saveRDS(results.ranges, file = "./diagenode_v2_results/avpc_vs_group4/data/avpc_vs_group4_granges_object.rds")
 
 # set up the grouping variables and colours
-groups <- pal[1:length(unique(targets$Prognosis_simple))]
+groups <- pal[1:length(unique(targets$Prognosis_third_grouping))]
 
-names(groups) <- levels(factor(targets$Prognosis_simple))
+names(groups) <- levels(factor(targets$Prognosis_third_grouping))
 
-cols <- groups[as.character(factor(targets$Prognosis_simple))]
+cols <- groups[as.character(factor(targets$Prognosis_third_grouping))]
 
-DMR.plot(ranges = results.ranges, dmr = 7, CpGs = bVals, phen.col = cols, 
+DMR.plot(ranges = results.ranges, dmr = 1, CpGs = bVals, phen.col = cols, 
          what = "Beta", arraytype = "EPICv2", genome = "hg38")
 
 

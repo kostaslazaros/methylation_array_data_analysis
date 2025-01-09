@@ -21,6 +21,11 @@ library(dplyr)
 annEPIC <- getAnnotation(IlluminaHumanMethylationEPICanno.ilm10b4.hg19)
 head(annEPIC)
 
+# Convert row names to a new dataframe with a single column named 'ID_source'
+df_with_id_source <- data.frame(ID_source = rownames(annEPIC))
+
+# Save the new dataframe as an Excel file
+write.xlsx(df_with_id_source, "EPICv1_ID_source_data.xlsx", rowNames = FALSE)
 
 
 # read in the sample sheet for the experiment

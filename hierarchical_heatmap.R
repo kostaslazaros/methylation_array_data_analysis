@@ -4,22 +4,22 @@ library(minfi)
 library(dplyr)
 
 # Read the data
-df <- read.csv(file="./diagenode_v2_results/normal_vs_indolent/data/normal_vs_indolent_heatmap_df.csv")
+df <- read.csv(file="./diagenode_v2_results/avpc_vs_group4/data/avpc_vs_group4_heatmap_df.csv")
 
 # Print the structure of df to ensure it is read correctly
 str(df)
 
 # Read the targets (sample sheet)
-targets <- read.metharray.sheet("./diagenode_v2_normal_vs_indolent_data", pattern="SampleSheet.csv")
+targets <- read.metharray.sheet("./diagenode_v2_data", pattern="SampleSheet.csv")
 
 # Check if the targets dataframe has the expected structure and column
-if (!"Prognosis" %in% colnames(targets)) {
+if (!"Prognosis_third_grouping" %in% colnames(targets)) {
   stop("Column 'Prognosis' not found in the targets dataframe")
 }
 
 # Create a new annotation data frame with column names and annotation values
 annotation_df <- data.frame(
-  Tissue = targets$Prognosis
+  Tissue = targets$Prognosis_third_grouping
 )
 rownames(annotation_df) <- colnames(df)
 
@@ -31,7 +31,7 @@ col_dist <- dist(t(as.matrix(df)), method = "euclidean")
 col_hclust <- hclust(col_dist, method = "complete")
 
 # Cut the dendrogram to obtain a specific number of clusters
-num_clusters <- 3# Specify the desired number of clusters
+num_clusters <- 4# Specify the desired number of clusters
 col_clusters <- cutree(col_hclust, k = num_clusters)
 
 # Add cluster assignments to the annotation data frame

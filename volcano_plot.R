@@ -2,7 +2,7 @@ library(tidyverse)
 library(RColorBrewer)
 library(ggrepel)
 
-df <- read.csv("./diagenode_v2_results/normal_vs_indolent/data/normal_vs_indolent_DMPs.csv")
+df <- read.csv("./diagenode_v2_results/avpc_vs_group4/data/avpc_vs_group4_DMPs.csv")
 df$neg_log10_pval <- -log10(df$P.Value)
 df
 
@@ -21,6 +21,8 @@ df$diffexpressed <- "NO"
   df$diffexpressed[df$logFC < -1 & df$P.Value < 0.001] <- "DOWN"
   head(df[order(df$P.Value) & df$diffexpressed == 'DOWN', ])
 
+table(df$diffexpressed)
+  
 
   
 # df_annotated <- df[df$genes %in% genes_to_annotate,]
@@ -30,11 +32,6 @@ df$diffexpressed <- "NO"
   top_upregulated <- df[df$diffexpressed == "UP", ][order(-df$neg_log10_pval[df$diffexpressed == "UP"], -df$logFC[df$diffexpressed == "UP"]), ][1:5,]
 
   #)
-  
-  
-  # top_up <- c("cg23688334", "cg11059561", "cg02968883", "cg04656757", "cg12366974", "cg02695267")
-  
-  # top_down <- c("cg06788803", "cg27294950", "cg26687120", "cg21511817", "cg25339705", "cg11682124")
   
   
   # Combine into a list
@@ -57,10 +54,10 @@ p <- ggplot(data=df, aes(x=logFC, y= -log10(P.Value), col=diffexpressed)) +
     geom_point(size=2) + 
     scale_color_manual(values=c("#5ce65c", "grey", "#bb0c00"),
                        labels=c("Hypomethylated", "Not significant", "Hypermethylated")) +
-    coord_cartesian(ylim=c(0, 11), xlim=c(-6, 6)) +
+    coord_cartesian(ylim=c(0, 13), xlim=c(-6, 6)) +
     labs(color='', x=expression("log"[2]*"FC"), y=expression("-log"[10]*"p-value")) +
     scale_x_continuous(breaks=seq(-6, 6, 1)) +
-    ggtitle("DMPs (Normal vs Indolent)")
+    ggtitle("DMPs (AVPC vs Group4)")
   
   # Adding labels with ggrepel for better visibility and avoiding overlaps
  p + geom_label_repel(data=df_annotated, aes(label=Name, x=logFC, y= -log10(P.Value)),
